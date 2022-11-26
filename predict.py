@@ -1,28 +1,26 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 import json
 import csv
 import math, random, sys
 import numpy as np
 import argparse
 import os
-
+from preprocess import *
 from bindgen import *
 from tqdm import tqdm
-
 import pdbfixer
 import openmm
 import biotite.structure as struc
 from biotite.structure import AtomArray, Atom
 from biotite.structure.io import save_structure
 from biotite.structure.io.pdb import PDBFile
+from sidechainnet.structure.PdbBuilder import PdbBuilder
+import py3Dmol
 
 ENERGY = openmm.unit.kilocalories_per_mole
 LENGTH = openmm.unit.angstroms
-torch.set_num_threads(8)
-
 
 def print_pdb(coord, seq, chain, indices=None):
     array = []
@@ -84,36 +82,64 @@ def openmm_relax(pdb_file, stiffness=10., tolerance=2.39, use_gpu=False):
     return energy
 
 
-if __name__ == "__main__":
-    model_ckpt, _, args = torch.load(sys.argv[1])
+def save_pdb(X, seq, file):
+    pdb = PdbBuilder(seq, X.reshape(X.shape[0] * 14, 3)).get_pdb_string()
+    
+    pdb_file = open(f'{file}.pdb', 'w')
+    pdb_file.write(pdb)
+    
+    
+def view_pdb(file):
+    with open(f'{file}') as ifile:
+        system = "".join([x for x in ifile])
+    
+    view = py3Dmol.view(width=400, height=300)
+    view.addModelsAsFrames(system)
+    
+    i = 0
+    for line in system.split("\n"):
+        split = line.split()
+        if len(split) == 0 or split[0] != "ATOM":
+            continue
+        if split[4] == "H":
+            color = "red"
+        else:
+            color = "blue"
+        idx = int(split[1])
+
+        view.setStyle({'model': -1, 'serial': i+1}, {"cartoon": {'color': color}})
+        i += 1
+    
+    view.zoomTo()
+    view.show()
+    
+    
+def load_model(ckpt):
+    model_ckpt, _, args = torch.load(ckpt)
     model = RefineDocker(args)
     model.load_state_dict(model_ckpt)
     model.eval()
+    
+    return model
 
-    data = AntibodyComplexDataset(
-            sys.argv[2],
-            cdr_type=args.cdr,
-            L_target=args.L_target,
-    )
 
-    with torch.no_grad():
-        for ab in tqdm(data.data):
-            pdb = ab['pdb']
-            batch = make_batch([ab])
-            batch[0][0].fill_(0)  # remove ground truth
-            out = model(*batch)
+def dock(complex_pdb, cdr3_sequence, model):
+    entry = load_pdb(complex_pdb)
+    data = get_batch(entry, cdr3_sequence=cdr3_sequence)
+    
+    out = model(*data)
+    
+    X = out.bind_X[0].cpu().numpy()
+    Y = np.array(entry['target_coords'])
 
-            bind_X, _, bind_A, _ = batch[0]
-            bind_mask = bind_A.clamp(max=1).float()
+    X_pdb = print_pdb(X, cdr3_sequence, 'H')
+    Y_pdb = print_pdb(Y, entry['target_seq'], 'A')
 
-            X = out.bind_X[0].cpu().numpy()
-            Y = np.array(ab['antigen_coords'])
-            path = os.path.join('outputs', f'{pdb}_pred.pdb')
-            array1 = print_pdb(X, ab['binder_seq'], 'H')
-            array2 = print_pdb(Y, ab['antigen_seq'], 'A')
-            array = struc.array(array2 + array1)
-            save_structure(path, array)
-            try:
-                openmm_relax(path, use_gpu=True, stiffness=0)
-            except:
-                continue
+    complex = struc.array(X_pdb + Y_pdb)
+    save_structure(f'outputs/{cdr3_sequence}_docked.pdb', complex)
+    
+    openmm_relax(f'outputs/{cdr3_sequence}_docked.pdb')
+    
+    print(f"Saved to 'outputs/{cdr3_sequence}_docked.pdb'")
+    
+    return f'outputs/{cdr3_sequence}_docked.pdb'

@@ -148,18 +148,45 @@ def load_pdb(pdb_file):
     entry['target_surface'] = torch.sort(epitope).values
     
     # TURN INTO BATCH
-    X_ab = entry['binder_coords'].unsqueeze(0)
-    A_ab = entry['binder_atypes'].unsqueeze(0)
-    D_ab = torch.zeros((1, len(entry['binder_seq']), 12))
-    S_ab = torch.tensor([ALPHABET.index(a) for a in entry['binder_seq']])
+    X_ab = entry['binder_coords'].unsqueeze(0).float()
+    A_ab = entry['binder_atypes'].unsqueeze(0).long()
+    D_ab = torch.zeros((1, len(entry['binder_seq']), 12)).float()
+    S_ab = torch.tensor([ALPHABET.index(a) for a in entry['binder_seq']]).unsqueeze(0).long()
     
-    X_ag = entry['target_coords'].unsqueeze(0)
-    A_ag = entry['target_atypes'].unsqueeze(0)
-    D_ag = torch.zeros((1, len(entry['target_seq']), 12))
-    S_ag = torch.tensor([ALPHABET.index(a) for a in entry['target_seq']])
+    X_ag = entry['target_coords'].unsqueeze(0).float()
+    A_ag = entry['target_atypes'].unsqueeze(0).long()
+    D_ag = torch.zeros((1, len(entry['target_seq']), 12)).float()
+    S_ag = torch.tensor([ALPHABET.index(a) for a in entry['target_seq']]).unsqueeze(0).long()
     
-    ab_surface = [entry['binder_surface']]
-    ag_surface = [entry['target_surface']]
+    ab_surface = [entry['binder_surface'].long()]
+    ag_surface = [entry['target_surface'].long()]
+    
+    # return (X_ab, S_ab, A_ab, D_ab), (X_ag, S_ag, A_ag, D_ag), (ab_surface, ag_surface)
+    return entry
+    
+def get_batch(entry, cdr3_sequence=None):    
+    # TURN INTO BATCH
+    # X_ab = entry['binder_coords'].unsqueeze(0).float()
+    # A_ab = entry['binder_atypes'].unsqueeze(0).long()
+    if cdr3_sequence:
+        X_ab = torch.zeros((1, len(cdr3_sequence), 14, 3)).float()
+        A_ab = torch.tensor(
+            [[ATOM_TYPES.index(a) for a in RES_ATOM14[ALPHABET.index(s)]] for s in cdr3_sequence]
+        ).unsqueeze(0).long()
+        D_ab = torch.zeros((1, len(cdr3_sequence), 12)).float()
+        S_ab = torch.tensor([ALPHABET.index(a) for a in cdr3_sequence]).unsqueeze(0).long()
+    else:
+        X_ab = entry['binder_coords'].unsqueeze(0).float()
+        A_ab = entry['binder_atypes'].unsqueeze(0).long()
+        D_ab = torch.zeros((1, len(cdr3_sequence), 12)).float()
+        S_ab = torch.tensor([ALPHABET.index(a) for a in entry['binder_seq']]).unsqueeze(0).long()
+    
+    X_ag = entry['target_coords'].unsqueeze(0).float()
+    A_ag = entry['target_atypes'].unsqueeze(0).long()
+    D_ag = torch.zeros((1, len(entry['target_seq']), 12)).float()
+    S_ag = torch.tensor([ALPHABET.index(a) for a in entry['target_seq']]).unsqueeze(0).long()
+    
+    ab_surface = [entry['binder_surface'].long()]
+    ag_surface = [entry['target_surface'].long()]
     
     return (X_ab, S_ab, A_ab, D_ab), (X_ag, S_ag, A_ag, D_ag), (ab_surface, ag_surface)
-    
