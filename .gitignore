@@ -3,3 +3,4 @@ data
 __pycache__
 weights
 outputs
+.foldx_*

@@ -123,23 +123,40 @@ def load_model(ckpt):
     return model
 
 
-def dock(complex_pdb, cdr3_sequence, model):
+def dock(complex_pdb, cdr3_sequence=None, model=None, relax=False):
     entry = load_pdb(complex_pdb)
-    data = get_batch(entry, cdr3_sequence=cdr3_sequence)
+    if cdr3_sequence:
+        data = get_batch(entry, cdr3_sequence=cdr3_sequence)
+    else:
+        data = get_batch(entry)
     
-    out = model(*data)
+    # ab_coords = np.array(entry['antibody_coords'])
+    # ab_surface = np.array(entry['binder_surface'])
+    # ab_seq = list(entry['antibody_seq'])
+    # ab_seq[ab_surface[0]:ab_surface[-1]+1] = list(cdr3_sequence)
     
-    X = out.bind_X[0].cpu().numpy()
-    Y = np.array(entry['target_coords'])
+    
+    # ab_coords = np.delete(ab_coords, ab_surface, 0)
+    # ab_coords = np.insert(ab_coords, ab_surface[0], X, 0)
 
-    X_pdb = print_pdb(X, cdr3_sequence, 'H')
+    if model:
+        out = model(*data)
+        X = out.bind_X[0].cpu().numpy()
+        X_pdb = print_pdb(X, cdr3_sequence, 'H')
+    else:
+        X_pdb = print_pdb(entry['binder_coords'], entry['binder_seq'], 'H')
+    
+    Y = np.array(entry['target_coords'])    
     Y_pdb = print_pdb(Y, entry['target_seq'], 'A')
 
     complex = struc.array(X_pdb + Y_pdb)
-    save_structure(f'outputs/{cdr3_sequence}_docked.pdb', complex)
+    save_structure(f'outputs/docked.pdb', complex)
     
-    openmm_relax(f'outputs/{cdr3_sequence}_docked.pdb')
-    
-    print(f"Saved to 'outputs/{cdr3_sequence}_docked.pdb'")
-    
-    return f'outputs/{cdr3_sequence}_docked.pdb'
+    if relax:
+        openmm_relax(f'outputs/docked.pdb')
+
+
+model = load_model('weights/HERN_dock.ckpt')
+# out_file = dock('1nca_imgt.pdb', 'AAAAA', model, True)
+
+out_file = dock('1nca_imgt.pdb')

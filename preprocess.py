@@ -94,7 +94,7 @@ def load_pdb(pdb_file):
     _, acoords, aseq, _, _ = get_seq_coords_and_angles(achain)
     acoords = acoords.reshape((len(aseq), 14, 3)) # reshaped to (length of chain, number of types atoms (14), 3d coords)
     
-    complex_1nca = {
+    entry = {
         'pdb': '1cna',
         'antibody_seq': hseq, # heavy chain sequence
         'antibody_cdr': hcdr, # imgt cdr numbering
@@ -102,17 +102,16 @@ def load_pdb(pdb_file):
         'antigen_seq': aseq, # antigen sequence
         'antigen_coords': acoords # antigen coordinates
     }
-    entry = {}
     
     # residue indices of the CDR3 region
-    surface = torch.tensor([i for i,v in enumerate(complex_1nca['antibody_cdr']) if v in '3'])
+    surface = torch.tensor([i for i,v in enumerate(entry['antibody_cdr']) if v in '3'])
     entry['binder_surface'] = surface
 
     # FASTA sequence of the CDR3 region
-    entry['binder_seq'] = ''.join([complex_1nca['antibody_seq'][i] for i in surface.tolist()])
+    entry['binder_seq'] = ''.join([entry['antibody_seq'][i] for i in surface.tolist()])
 
     # coordinates of the cdr3 region
-    entry['binder_coords'] = torch.tensor(complex_1nca['antibody_coords'])[surface]
+    entry['binder_coords'] = torch.tensor(entry['antibody_coords'])[surface]
 
     # convert to indices of atom types of the CDR3 region
     entry['binder_atypes'] = torch.tensor(
@@ -126,8 +125,8 @@ def load_pdb(pdb_file):
     entry['binder_atypes'] *= mask
     
     # same things for the antigen target
-    entry['target_seq'] = complex_1nca['antigen_seq']
-    entry['target_coords'] = torch.tensor(complex_1nca['antigen_coords'])
+    entry['target_seq'] = entry['antigen_seq']
+    entry['target_coords'] = torch.tensor(entry['antigen_coords'])
     entry['target_atypes'] = torch.tensor(
             [[ATOM_TYPES.index(a) for a in RES_ATOM14[ALPHABET.index(s)]] for s in entry['target_seq']]
     )
@@ -178,7 +177,7 @@ def get_batch(entry, cdr3_sequence=None):
     else:
         X_ab = entry['binder_coords'].unsqueeze(0).float()
         A_ab = entry['binder_atypes'].unsqueeze(0).long()
-        D_ab = torch.zeros((1, len(cdr3_sequence), 12)).float()
+        D_ab = torch.zeros((1, len(entry['binder_seq']), 12)).float()
         S_ab = torch.tensor([ALPHABET.index(a) for a in entry['binder_seq']]).unsqueeze(0).long()
     
     X_ag = entry['target_coords'].unsqueeze(0).float()

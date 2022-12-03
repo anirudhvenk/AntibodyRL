@@ -93,7 +93,7 @@ class CondRefineDecoder(ABModel):
         true_h_S = self.embedding(true_S)
 
         # Initial state
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         logits = self.W_s0(pos_vecs)
         init_prob = F.softmax(logits, dim=-1)
         init_loss = self.ce_loss(logits.view(-1,len(ALPHABET)), true_S.view(-1))
@@ -211,20 +211,20 @@ class CondRefineDecoder(ABModel):
         tgt_S = tgt_S.expand(B,-1,-1)
         tgt_V = tgt_V.expand(B,-1,-1)
 
-        true_mask = torch.zeros(B, N).cuda()
+        true_mask = torch.zeros(B, N)
         tgt_mask = tgt_A[:,:,1].clamp(max=1).float()
         mask = torch.cat([true_mask, tgt_mask], dim=1)
 
         # Encode CDR
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         logits = self.W_s0(pos_vecs)
         init_prob = F.softmax(logits, dim=-1)
 
         # Initial state
         bind_S = self.embedding.soft_forward(init_prob)
-        bind_X = torch.zeros(B, N, 14, 3).cuda()
-        bind_I = torch.zeros(B, N).cuda().long()
-        bind_A = torch.zeros(B, N, 14).cuda().long()
+        bind_X = torch.zeros(B, N, 14, 3)
+        bind_I = torch.zeros(B, N).long()
+        bind_A = torch.zeros(B, N, 14).long()
         for i in range(4):
             bind_A[:,:,i] = i + 1  # backbone atoms
 
@@ -348,12 +348,12 @@ class AttRefineDecoder(ABModel):
         true_C, cmask_2D = full_square_dist(true_X, true_X, true_A, true_A)
 
         # Initial coords
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         X = self.W_x0(pos_vecs).view(B, N, L, 3)
         dloss, vloss, rloss, closs = self.struct_loss(X, true_mask, true_D, true_V, true_R, true_C)
 
         # Initial residues
-        S = torch.zeros(B, N).cuda().long()
+        S = torch.zeros(B, N).long()
         sloss = 0.
 
         for t in range(N):
@@ -409,16 +409,16 @@ class AttRefineDecoder(ABModel):
         tgt_h = tgt_h.expand(B,-1,-1)
         tgt_A = tgt_A.expand(B,-1,-1)
 
-        true_A = torch.ones(B, N, 14).cuda()
-        true_mask = torch.ones(B, N).cuda()
+        true_A = torch.ones(B, N, 14)
+        true_mask = torch.ones(B, N)
         tgt_mask = tgt_A[:,:,1].clamp(max=1).float()
 
         # Initial coords
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         X = self.W_x0(pos_vecs).view(B, N, 14, 3)
 
         # Initial residues
-        S = torch.zeros(B, N).cuda().long()
+        S = torch.zeros(B, N).long()
         sloss = 0.
 
         for t in range(N):
@@ -492,12 +492,12 @@ class UncondRefineDecoder(ABModel):
         true_C, cmask_2D = full_square_dist(true_X, true_X, true_A, true_A)
 
         # Initial coords
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         X = self.W_x0(pos_vecs).view(B, N, L, 3)
         dloss, vloss, rloss, closs = self.struct_loss(X, true_mask, true_D, true_V, true_R, true_C)
 
         # Initial residues
-        S = torch.zeros(B, N).cuda().long()
+        S = torch.zeros(B, N).long()
         sloss = 0.
 
         for t in range(N):
@@ -538,15 +538,15 @@ class UncondRefineDecoder(ABModel):
         bind_surface, _ = surface
         B, N = len(bind_surface), len(bind_surface[0])  # assume equal length
 
-        true_A = torch.ones(B, N, 14).cuda()
-        true_mask = torch.ones(B, N).cuda()
+        true_A = torch.ones(B, N, 14)
+        true_mask = torch.ones(B, N)
 
         # Initial coords
-        pos_vecs = torch.arange(N)[None,:].expand(B, -1).cuda()
+        pos_vecs = torch.arange(N)[None,:].expand(B, -1)
         X = self.W_x0(pos_vecs).view(B, N, 14, 3)
 
         # Initial residues
-        S = torch.zeros(B, N).cuda().long()
+        S = torch.zeros(B, N).long()
         sloss = 0.
 
         for t in range(N):
@@ -665,8 +665,8 @@ class SequenceDecoder(ABModel):
             tgt_A = tgt_A.expand(B,-1,-1)
             tgt_mask = tgt_A[:,:,1].clamp(max=1).float()
 
-        true_mask = torch.ones(B, N).cuda()
-        S = torch.zeros(B, N).long().cuda()
+        true_mask = torch.ones(B, N)
+        S = torch.zeros(B, N).long()
         sloss = 0.
 
         for t in range(N):
